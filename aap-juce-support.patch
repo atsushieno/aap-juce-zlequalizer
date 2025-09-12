@@ -1,0 +1,125 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 946742c..61d9b3f 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -214,3 +214,55 @@ target_link_libraries("${PROJECT_NAME}" PRIVATE SharedCode)
+ 
+ # Pass some config to GA (like our PRODUCT_NAME)
+ include(GitHubENV)
++
++
++# begin JUCEAAP specific -->
++
++include_directories(
++        "${AAP_DIR}/include"
++        "${JUCE_DIR}/modules"
++)
++
++juce_add_modules(${AAP_JUCE_DIR}/aap-modules/aap_audio_processors)
++target_link_libraries(${PROJECT_NAME}
++        PRIVATE
++        aap_audio_processors
++)
++
++add_compile_definitions(
++        [[JUCEAAP_USE_UNIQUE_ID=1]]
++        [[JUCEAAP_HOSTED_PARAMETER=1]]
++        [[JUCEAAP_HAVE_AUDIO_PLAYHEAD_NEW_POSITION_INFO=1]]
++)
++
++if (ANDROID)
++    add_library("cpufeatures" STATIC "${ANDROID_NDK}/sources/android/cpufeatures/cpu-features.c")
++    set_source_files_properties("${ANDROID_NDK}/sources/android/cpufeatures/cpu-features.c" PROPERTIES COMPILE_FLAGS "-Wno-sign-conversion -Wno-gnu-statement-expression")
++
++    # dependencies
++    find_library(log "log")
++    find_library(android "android")
++    find_library(glesv2 "GLESv2")
++    find_library(egl "EGL")
++    set(cpufeatures_lib "cpufeatures")
++    set(oboe_lib "oboe")
++    set(CMAKE_CXX_FLAGS_RELEASE "-O3")
++
++    add_compile_definitions(
++            [[JUCE_ANDROID=1]]
++            [[JUCE_DONT_AUTO_OPEN_MIDI_DEVICES_ON_MOBILE=1]]
++            [[JUCE_PUSH_NOTIFICATIONS_ACTIVITY="com/rmsl/juce/JuceActivity"]]
++            [[JUCE_PUSH_NOTIFICATIONS=1]]
++            [[JUCE_USE_ANDROID_OBOE_STABILIZED_CALLBACK=1]]
++    )
++
++    target_link_libraries(${PROJECT_NAME}
++            PRIVATE
++            ${log}
++            ${android}
++            ${glesv2}
++            ${egl}
++            ${cpufeatures_lib}
++    )
++endif (ANDROID)
++# <-- end JUCEAAP specific
+diff --git a/JUCE b/JUCE
+--- a/JUCE
++++ b/JUCE
+@@ -1 +1 @@
+-Subproject commit d0a9793a6374c7420116c4b508cf4713076f8304
++Subproject commit d0a9793a6374c7420116c4b508cf4713076f8304-dirty
+diff --git a/source/state/property.cpp b/source/state/property.cpp
+index e7eb70c..661a320 100644
+--- a/source/state/property.cpp
++++ b/source/state/property.cpp
+@@ -11,6 +11,7 @@
+ 
+ namespace zlstate {
+     Property::Property() {
++        ensurePathsInitialized();
+         if (!kPath.isDirectory()) {
+             if (!kPath.createDirectory()) return;
+         }
+@@ -18,6 +19,7 @@ namespace zlstate {
+     }
+ 
+     Property::Property(juce::AudioProcessorValueTreeState &apvts) {
++        ensurePathsInitialized();
+         if (!kPath.isDirectory()) {
+             if (!kPath.createDirectory()) return;
+         }
+@@ -25,6 +27,17 @@ namespace zlstate {
+         loadAPVTS(apvts);
+     }
+ 
++    void Property::ensurePathsInitialized() {
++        if (kPath.getFullPathName() == "") {
++            kPath = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
++                    .getChildFile("Audio")
++                    .getChildFile("Presets")
++                    .getChildFile(JucePlugin_Manufacturer)
++                    .getChildFile(JucePlugin_Name);
++            kUIPath = kPath.getChildFile("ui.xml");
++        }
++    }
++
+     void Property::loadAPVTS(juce::AudioProcessorValueTreeState &apvts) {
+         const juce::ScopedReadLock scoped_lock(read_write_lock_);
+         const auto file = ui_file_->getFile();
+diff --git a/source/state/property.hpp b/source/state/property.hpp
+index 75f345c..9fb0fc9 100644
+--- a/source/state/property.hpp
++++ b/source/state/property.hpp
+@@ -27,12 +27,9 @@ namespace zlstate {
+         std::unique_ptr<juce::PropertiesFile> ui_file_;
+         juce::ReadWriteLock read_write_lock_;
+ 
+-        inline static const auto kPath =
+-                juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
+-                .getChildFile("Audio")
+-                .getChildFile("Presets")
+-                .getChildFile(JucePlugin_Manufacturer)
+-                .getChildFile(JucePlugin_Name);
+-        inline static const auto kUIPath = kPath.getChildFile("ui.xml");
++        inline static juce::File kPath{};
++        inline static auto kUIPath = juce::File{};
++
++        void ensurePathsInitialized();
+     };
+ }

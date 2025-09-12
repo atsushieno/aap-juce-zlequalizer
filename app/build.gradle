@@ -1,0 +1,71 @@
+plugins {
+    id 'com.android.application'
+    id 'kotlin-android'
+}
+
+kotlin {
+    jvmToolchain(11)
+}
+
+android {
+    namespace = "org.androidaudioplugin.ports.juce.zlequalizer"
+    compileSdk = libs.versions.android.compileSdk.get().toInteger()
+
+    defaultConfig {
+        minSdk =  libs.versions.android.minSdk.get().toInteger()
+        targetSdk =  libs.versions.android.targetSdk.get().toInteger()
+        externalNativeBuild {
+            cmake {
+                arguments "-DANDROID=1",
+                    "-DKFR_ENABLE_MULTIARCH=On",
+                    "-DAAP_DIR=${System.env.AAP_DIR != null ? System.env.AAP_DIR : "$projectDir/../external/aap-core"}",
+                    "-DAAP_JUCE_DIR=${System.env.AAP_JUCE_DIR != null ? System.env.AAP_JUCE_DIR : "$projectDir/../external/aap-juce"}",
+                    "-DANDROID_STL=c++_shared", "-DANDROID_CPP_FEATURES=exceptions rtti"
+            }
+        }
+        proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        buildFeatures {
+            prefab true
+        }
+    }
+
+    sourceSets {
+        main.java.srcDirs +=
+            ["../external/ZLEqualizer/JUCE/modules/juce_gui_basics/native/javaopt/app",
+             "../external/aap-juce/java"]
+        main.res.srcDirs +=
+            []
+    }
+
+    dependencies {
+        implementation libs.androidx.core.ktx
+        implementation libs.startup.runtime
+        implementation libs.aap.core
+        implementation libs.aap.ui.web
+        implementation libs.aap.ui.compose
+        // switch to them when you want to debug into aap-core.
+        /*
+        implementation project(":androidaudioplugin")
+        implementation project(":androidaudioplugin-ui-web")
+        implementation project(":androidaudioplugin-ui-compose")
+         */
+    }
+
+    externalNativeBuild {
+        cmake {
+            path "src/main/cpp/CMakeLists.txt"
+            version libs.versions.cmake.get()
+        }
+    }
+
+    buildFeatures {
+        prefab true
+    }
+
+    ndkVersion libs.versions.ndk.get()
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+}
