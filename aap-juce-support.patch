@@ -1,8 +1,17 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 946742c..61d9b3f 100644
+index dc5830f..af2d55c 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -214,3 +214,55 @@ target_link_libraries("${PROJECT_NAME}" PRIVATE SharedCode)
+@@ -55,6 +55,8 @@ if (DEFINED ZL_JUCE_FORMATS)
+ else ()
+     if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+         set(FORMATS VST3 AU Standalone)
++    elseif (ANDROID)
++        set(FORMATS Standalone)
+     else ()
+         set(FORMATS VST3 LV2 Standalone)
+     endif ()
+@@ -227,3 +229,57 @@ target_link_libraries("${PROJECT_NAME}" PRIVATE SharedCode)
  
  # Pass some config to GA (like our PRODUCT_NAME)
  include(GitHubENV)
@@ -36,6 +45,7 @@ index 946742c..61d9b3f 100644
 +    find_library(android "android")
 +    find_library(glesv2 "GLESv2")
 +    find_library(egl "EGL")
++    find_package(androidaudioplugin CONFIG REQUIRED)
 +    set(cpufeatures_lib "cpufeatures")
 +    set(oboe_lib "oboe")
 +    set(CMAKE_CXX_FLAGS_RELEASE "-O3")
@@ -55,71 +65,133 @@ index 946742c..61d9b3f 100644
 +            ${glesv2}
 +            ${egl}
 +            ${cpufeatures_lib}
++            androidaudioplugin::androidaudioplugin
 +    )
 +endif (ANDROID)
 +# <-- end JUCEAAP specific
-diff --git a/JUCE b/JUCE
---- a/JUCE
-+++ b/JUCE
-@@ -1 +1 @@
--Subproject commit d0a9793a6374c7420116c4b508cf4713076f8304
-+Subproject commit d0a9793a6374c7420116c4b508cf4713076f8304-dirty
-diff --git a/source/state/property.cpp b/source/state/property.cpp
-index e7eb70c..661a320 100644
---- a/source/state/property.cpp
-+++ b/source/state/property.cpp
-@@ -11,6 +11,7 @@
+diff --git a/source/panel/ui_setting_panel/colour_setting_panel.cpp b/source/panel/ui_setting_panel/colour_setting_panel.cpp
+index 47c1ddf..fc01e7b 100644
+--- a/source/panel/ui_setting_panel/colour_setting_panel.cpp
++++ b/source/panel/ui_setting_panel/colour_setting_panel.cpp
+@@ -10,6 +10,17 @@
+ #include "colour_setting_panel.hpp"
  
- namespace zlstate {
-     Property::Property() {
-+        ensurePathsInitialized();
-         if (!kPath.isDirectory()) {
-             if (!kPath.createDirectory()) return;
-         }
-@@ -18,6 +19,7 @@ namespace zlstate {
-     }
- 
-     Property::Property(juce::AudioProcessorValueTreeState &apvts) {
-+        ensurePathsInitialized();
-         if (!kPath.isDirectory()) {
-             if (!kPath.createDirectory()) return;
-         }
-@@ -25,6 +27,17 @@ namespace zlstate {
-         loadAPVTS(apvts);
-     }
- 
-+    void Property::ensurePathsInitialized() {
-+        if (kPath.getFullPathName() == "") {
-+            kPath = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
+ namespace zlpanel {
++    const juce::File& ColourSettingPanel::getSettingDirectory() {
++        static juce::File dir{};
++        if (dir.getFullPathName().isEmpty())
++            dir = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
 +                    .getChildFile("Audio")
 +                    .getChildFile("Presets")
 +                    .getChildFile(JucePlugin_Manufacturer)
-+                    .getChildFile(JucePlugin_Name);
-+            kUIPath = kPath.getChildFile("ui.xml");
-+        }
++                    .getChildFile("Shared Settings");
++        return dir;
 +    }
 +
-     void Property::loadAPVTS(juce::AudioProcessorValueTreeState &apvts) {
-         const juce::ScopedReadLock scoped_lock(read_write_lock_);
-         const auto file = ui_file_->getFile();
-diff --git a/source/state/property.hpp b/source/state/property.hpp
-index 75f345c..9fb0fc9 100644
---- a/source/state/property.hpp
-+++ b/source/state/property.hpp
-@@ -27,12 +27,9 @@ namespace zlstate {
-         std::unique_ptr<juce::PropertiesFile> ui_file_;
-         juce::ReadWriteLock read_write_lock_;
+     static juce::Colour getIntColour(const int r, const int g, const int b, float alpha) {
+         return {
+             static_cast<juce::uint8>(r),
+@@ -23,8 +34,8 @@ namespace zlpanel {
+         : pRef(p), base_(base), name_laf_(base),
+           c_map1_selector_(base), c_map2_selector_(base) {
+         juce::ignoreUnused(pRef);
+-        if (!kSettingDirectory.isDirectory()) {
+-            const auto result = kSettingDirectory.createDirectory();
++        if (!getSettingDirectory().isDirectory()) {
++            const auto result = getSettingDirectory().createDirectory();
+             juce::ignoreUnused(result);
+         }
+         name_laf_.setFontScale(zlgui::kFontHuge);
+@@ -140,7 +151,7 @@ namespace zlpanel {
+     void ColourSettingPanel::mouseDown(const juce::MouseEvent &event) {
+         if (event.originalComponent == &import_label_) {
+             chooser_ = std::make_unique<juce::FileChooser>(
+-                "Load the colour settings...", kSettingDirectory, "*.xml",
++                "Load the colour settings...", getSettingDirectory(), "*.xml",
+                 true, false, nullptr);
+             constexpr auto setting_open_flags = juce::FileBrowserComponent::openMode |
+                                                 juce::FileBrowserComponent::canSelectFiles;
+@@ -164,7 +175,7 @@ namespace zlpanel {
+             });
+         } else if (event.originalComponent == &export_label_) {
+             chooser_ = std::make_unique<juce::FileChooser>(
+-                "Save the colour settings...", kSettingDirectory.getChildFile("colour.xml"), "*.xml",
++                "Save the colour settings...", getSettingDirectory().getChildFile("colour.xml"), "*.xml",
+                 true, false, nullptr);
+             constexpr auto setting_save_flags = juce::FileBrowserComponent::saveMode |
+                                                 juce::FileBrowserComponent::warnAboutOverwriting;
+diff --git a/source/panel/ui_setting_panel/colour_setting_panel.hpp b/source/panel/ui_setting_panel/colour_setting_panel.hpp
+index 0042032..98083e9 100644
+--- a/source/panel/ui_setting_panel/colour_setting_panel.hpp
++++ b/source/panel/ui_setting_panel/colour_setting_panel.hpp
+@@ -49,11 +49,6 @@ namespace zlpanel {
+         juce::Label import_label_, export_label_;
  
--        inline static const auto kPath =
+         std::unique_ptr<juce::FileChooser> chooser_;
+-        inline auto static const kSettingDirectory =
 -                juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
 -                .getChildFile("Audio")
 -                .getChildFile("Presets")
 -                .getChildFile(JucePlugin_Manufacturer)
--                .getChildFile(JucePlugin_Name);
--        inline static const auto kUIPath = kPath.getChildFile("ui.xml");
-+        inline static juce::File kPath{};
-+        inline static auto kUIPath = juce::File{};
-+
-+        void ensurePathsInitialized();
+-                .getChildFile("Shared Settings");
++        static const juce::File& getSettingDirectory();
      };
- }
+ } // zlpanel
+diff --git a/source/panel/ui_setting_panel/control_setting_panel.cpp b/source/panel/ui_setting_panel/control_setting_panel.cpp
+index 1859191..3614f2e 100644
+--- a/source/panel/ui_setting_panel/control_setting_panel.cpp
++++ b/source/panel/ui_setting_panel/control_setting_panel.cpp
+@@ -10,6 +10,17 @@
+ #include "control_setting_panel.hpp"
+ 
+ namespace zlpanel {
++    const juce::File& ControlSettingPanel::getSettingDirectory() {
++        static juce::File dir{};
++        if (dir.getFullPathName().isEmpty())
++            dir = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
++                    .getChildFile("Audio")
++                    .getChildFile("Presets")
++                    .getChildFile(JucePlugin_Manufacturer)
++                    .getChildFile("Shared Settings");
++        return dir;
++    }
++
+     ControlSettingPanel::ControlSettingPanel(PluginProcessor &p, zlgui::UIBase &base)
+         : p_ref_(p),
+           base_(base), name_laf_(base),
+@@ -165,7 +176,7 @@ namespace zlpanel {
+ 
+     void ControlSettingPanel::importControls() {
+         chooser_ = std::make_unique<juce::FileChooser>(
+-            "Load the control settings...", kSettingDirectory, "*.xml",
++            "Load the control settings...", getSettingDirectory(), "*.xml",
+             true, false, nullptr);
+         constexpr auto setting_open_flags = juce::FileBrowserComponent::openMode |
+                                             juce::FileBrowserComponent::canSelectFiles;
+@@ -213,7 +224,7 @@ namespace zlpanel {
+ 
+     void ControlSettingPanel::exportControls() {
+         chooser_ = std::make_unique<juce::FileChooser>(
+-            "Save the control settings...", kSettingDirectory.getChildFile("control.xml"), "*.xml",
++            "Save the control settings...", getSettingDirectory().getChildFile("control.xml"), "*.xml",
+             true, false, nullptr);
+         constexpr auto setting_save_flags = juce::FileBrowserComponent::saveMode |
+                                             juce::FileBrowserComponent::warnAboutOverwriting;
+diff --git a/source/panel/ui_setting_panel/control_setting_panel.hpp b/source/panel/ui_setting_panel/control_setting_panel.hpp
+index b7b8163..5c96c6f 100644
+--- a/source/panel/ui_setting_panel/control_setting_panel.hpp
++++ b/source/panel/ui_setting_panel/control_setting_panel.hpp
+@@ -51,12 +51,7 @@ namespace zlpanel {
+ 
+         juce::Label import_label_, export_label_;
+         std::unique_ptr<juce::FileChooser> chooser_;
+-        inline auto static const kSettingDirectory =
+-                juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
+-                .getChildFile("Audio")
+-                .getChildFile("Presets")
+-                .getChildFile(JucePlugin_Manufacturer)
+-                .getChildFile("Shared Settings");
++        static const juce::File& getSettingDirectory();
+ 
+         void importControls();
+ 

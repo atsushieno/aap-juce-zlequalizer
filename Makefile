@@ -21,4 +21,17 @@ APP_SHARED_CODE_LIBS="$(APP_NAME)_artefacts/lib$(APP_NAME)_SharedCode.a"
 PATCH_FILE=$(PWD)/aap-juce-support.patch
 PATCH_DEPTH=1
 
+# JUCE patches if any
+AAP_JUCE_CMAKE_SKIP_DEFAULT_PATCHES=1
+JUCE_PATCHES= \
+        $(AAP_JUCE_DIR)/juce-patches/8.0.12/export-jni-symbols.patch \
+	$(AAP_JUCE_DIR)/juce-patches/8.0.12/support-plugin-ui.patch \
+	$(AAP_JUCE_DIR)/juce-patches/8.0.12/juce-component-peer-view-touch.patch \
+	$(AAP_JUCE_DIR)/juce-patches/8.0.12/embedded-peer-window-guard.patch \
+	$(AAP_JUCE_DIR)/juce-patches/8.0.12/popup-menu-android.patch \
+        $(AAP_JUCE_DIR)/juce-patches/8.0.12/standalone-aap-factory-weak-fallback.patch
+
+
+JUCE_PATCH_DEPTH=1
+
 include $(AAP_JUCE_DIR)/Makefile.cmake-common

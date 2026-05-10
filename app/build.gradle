@@ -4,7 +4,7 @@ plugins {
 }
 
 kotlin {
-    jvmToolchain(11)
+    jvmToolchain(17)
 }
 
 android {
@@ -31,7 +31,8 @@ android {
 
     sourceSets {
         main.java.srcDirs +=
-            ["../external/ZLEqualizer/JUCE/modules/juce_gui_basics/native/javaopt/app",
+            ["../external/ZLEqualizer/JUCE/modules/juce_gui_basics/native/java/app",
+             "../external/ZLEqualizer/JUCE/modules/juce_gui_basics/native/javaopt/app",
              "../external/aap-juce/java"]
         main.res.srcDirs +=
             []
@@ -43,6 +44,7 @@ android {
         implementation libs.aap.core
         implementation libs.aap.ui.web
         implementation libs.aap.ui.compose
+        implementation libs.aap.ui.compose.app
         // switch to them when you want to debug into aap-core.
         /*
         implementation project(":androidaudioplugin")
@@ -65,7 +67,7 @@ android {
     ndkVersion libs.versions.ndk.get()
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_11
-        targetCompatibility JavaVersion.VERSION_11
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
 }
