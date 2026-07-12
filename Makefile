@@ -11,7 +11,7 @@ APP_SRC_DIR=$(PWD)/external/ZLEqualizer
 # Typical JUCE app submodules JUCE, but the location is up to the project.
 JUCE_DIR=$(APP_SRC_DIR)/JUCE
 
-APP_ICON=$(APP_SRC_DIR)/assets/logo.svg
+#APP_ICON=$(APP_SRC_DIR)/assets/logo.svg
 
 APP_SHARED_CODE_LIBS="$(APP_NAME)_artefacts/lib$(APP_NAME)_SharedCode.a"
 
