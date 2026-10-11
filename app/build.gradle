@@ -11,7 +11,7 @@ android {
         targetSdk =  libs.versions.android.targetSdk.get().toInteger()
         externalNativeBuild {
             cmake {
-                arguments "-DANDROID=1",
+                arguments "-DCMAKE_BUILD_TYPE=Release", "-DANDROID=1",
                     "-DKFR_ENABLE_MULTIARCH=On",
                     "-DANDROID_STL=c++_shared", "-DANDROID_CPP_FEATURES=exceptions rtti"
             }
